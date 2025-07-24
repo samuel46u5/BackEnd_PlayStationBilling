@@ -1,7 +1,10 @@
 const express = require("express");
+const cors = require("cors");
 const { exec } = require("child_process");
 const app = express();
 const port = 3002;
+
+app.use(cors());
 
 // Endpoint untuk cek status TV (hidup/mati)
 app.get("/tv-status/:ip", (req, res) => {
@@ -279,6 +282,6 @@ app.get('/install-adb', (req, res) => {
 
 
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`TV controller backend running at http://0.0.0.0:${port}`);
+app.listen(port, () => {
+  console.log(`TV controller backend running at http://localhost:${port}`);
 });
