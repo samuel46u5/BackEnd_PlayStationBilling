@@ -1,194 +1,333 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TV Controller</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 400px; margin: 60px auto; background: #fff; padding: 32px 24px 24px 24px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-        h2 { text-align: center; margin-bottom: 24px; }
-        label { display: block; margin-bottom: 8px; }
-        input[type=text], input[type=number] { width: 100%; padding: 8px; margin-bottom: 16px; border: 1px solid #ccc; border-radius: 4px; }
-        .btn-group { display: flex; justify-content: space-between; }
-        button { flex: 1; padding: 12px 0; margin: 0 4px; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background 0.2s; }
-        .on { background: #4caf50; color: #fff; }
-        .off { background: #f44336; color: #fff; }
-        .result { margin-top: 20px; text-align: center; font-weight: bold; }
-</style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f4f4f4;
+        margin: 0;
+        padding: 0;
+      }
+      .container {
+        max-width: 400px;
+        margin: 60px auto;
+        background: #fff;
+        padding: 32px 24px 24px 24px;
+        border-radius: 10px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      }
+      h2 {
+        text-align: center;
+        margin-bottom: 24px;
+      }
+      label {
+        display: block;
+        margin-bottom: 8px;
+      }
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .btn-group {
+        display: flex;
+        justify-content: space-between;
+      }
+      button {
+        flex: 1;
+        padding: 12px 0;
+        margin: 0 4px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .on {
+        background: #4caf50;
+        color: #fff;
+      }
+      .off {
+        background: #f44336;
+        color: #fff;
+      }
+      .result {
+        margin-top: 20px;
+        text-align: center;
+        font-weight: bold;
+      }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div style="text-align:center;margin-bottom:10px;">
-            <img id="tv-logo" src="https://img.icons8.com/ios-filled/100/000000/tv.png" alt="TV Logo" style="width:60px;height:60px;filter:brightness(0.3);">
-            <div style="margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px;">
-                <span id="tv-status-indicator" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#222;vertical-align:middle;"></span>
-                <span id="tv-status-text" style="font-weight:bold;vertical-align:middle;">Status: Tidak diketahui</span>
-                <button id="check-tv-status-btn" style="background:#2196f3;color:#fff;padding:4px 12px;border:none;border-radius:4px;font-size:13px;cursor:pointer;margin-left:8px;">Cek Status TV</button>
-            </div>
+      <div style="text-align: center; margin-bottom: 10px">
+        <img
+          id="tv-logo"
+          src="https://img.icons8.com/ios-filled/100/000000/tv.png"
+          alt="TV Logo"
+          style="width: 60px; height: 60px; filter: brightness(0.3)"
+        />
+        <div
+          style="
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+          "
+        >
+          <span
+            id="tv-status-indicator"
+            style="
+              display: inline-block;
+              width: 14px;
+              height: 14px;
+              border-radius: 50%;
+              background: #222;
+              vertical-align: middle;
+            "
+          ></span>
+          <span
+            id="tv-status-text"
+            style="font-weight: bold; vertical-align: middle"
+            >Status: Tidak diketahui</span
+          >
+          <button
+            id="check-tv-status-btn"
+            style="
+              background: #2196f3;
+              color: #fff;
+              padding: 4px 12px;
+              border: none;
+              border-radius: 4px;
+              font-size: 13px;
+              cursor: pointer;
+              margin-left: 8px;
+            "
+          >
+            Cek Status TV
+          </button>
         </div>
-        <h2>TV Controller</h2>
-        <label>Perintah ON TV</label>
+      </div>
+      <h2>TV Controller</h2>
+      <!-- HAPUS: Input custom command -->
+      <!-- <label>Perintah ON TV</label>
         <input type="text" id="cmd-on" value="adb -s 192.168.200.226:5555 shell input keyevent 26">
         <label>Perintah OFF TV</label>
-        <input type="text" id="cmd-off" value="adb -s 192.168.200.226:5555 shell input keyevent 26">
-        <label>IP Address</label>
-        <input type="text" id="ip" placeholder="192.168.200.226" value="192.168.200.226">
-        <label>Port</label>
-        <input type="number" id="port" placeholder="5555" value="5555">
-        <label>Method</label>
-        <select id="method">
-            <option value="adb">ADB</option>
-            <option value="tv_server">TV Server</option>
-        </select>
-        <div class="btn-group">
-            <button class="on" onclick="sendCustomCmd('on')">Hidupkan</button>
-            <button class="off" onclick="sendCustomCmd('off')">Matikan</button>
-        </div>
-        <div style="margin:16px 0 8px 0; text-align:center;">
-            <button id="check-adb" style="background:#ff9800;color:#fff;width:100%;padding:10px 0;border:none;border-radius:4px;font-size:15px;cursor:pointer;">Cek Status ADB</button>
-            <div id="adb-status" style="margin-top:8px;font-weight:bold;color:#333;"></div>
-        </div>
-        <div style="margin-top:20px; text-align:center;">
-            <button onclick="window.location.href='timer.html'" style="background:#2196f3;color:#fff;width:100%;padding:12px 0;border:none;border-radius:4px;font-size:16px;cursor:pointer;">Timer</button>
-        </div>
-        <div class="result" id="result"></div>
+        <input type="text" id="cmd-off" value="adb -s 192.168.200.226:5555 shell input keyevent 26"> -->
+      <label>IP Address</label>
+      <input
+        type="text"
+        id="ip"
+        placeholder="192.168.200.226"
+        value="192.168.200.226"
+      />
+      <label>Port</label>
+      <input type="number" id="port" placeholder="5555" value="5555" />
+      <label>Method</label>
+      <select id="method">
+        <option value="adb">ADB</option>
+        <option value="tv_server">TV Server</option>
+      </select>
+      <div class="btn-group">
+        <button class="on" onclick="sendPowerAction('wake')">Hidupkan</button>
+        <button class="off" onclick="sendPowerAction('sleep')">Matikan</button>
+      </div>
+      <div style="margin: 16px 0 8px 0; text-align: center">
+        <button
+          id="check-adb"
+          style="
+            background: #ff9800;
+            color: #fff;
+            width: 100%;
+            padding: 10px 0;
+            border: none;
+            border-radius: 4px;
+            font-size: 15px;
+            cursor: pointer;
+          "
+        >
+          Cek Status ADB
+        </button>
+        <div
+          id="adb-status"
+          style="margin-top: 8px; font-weight: bold; color: #333"
+        ></div>
+      </div>
+      <div style="margin-top: 20px; text-align: center">
+        <button
+          onclick="window.location.href='timer.html'"
+          style="
+            background: #2196f3;
+            color: #fff;
+            width: 100%;
+            padding: 12px 0;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+          "
+        >
+          Timer
+        </button>
+      </div>
+      <div class="result" id="result"></div>
     </div>
     <script>
-        document.getElementById('check-adb').onclick = function() {
-            const ip = document.getElementById('ip').value;
-            const port = document.getElementById('port').value;
-            if (!ip || !port) {
-                document.getElementById('adb-status').innerText = 'IP dan port harus diisi!';
-                return;
-            }
-            document.getElementById('adb-status').innerText = 'Mengecek status...';
-            fetch(`/adb-status?ip=${ip}&port=${port}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        document.getElementById('adb-status').innerText = 'Error: ' + data.message;
-                    } else {
-                        document.getElementById('adb-status').innerText = 'Status ADB: ' + data.adb_status;
-                        if (data.adb_status === 'offline') {
-                            document.getElementById('adb-status').innerHTML += '<br><button id="reconnect-adb" style="margin-top:8px;background:#2196f3;color:#fff;padding:6px 18px;border:none;border-radius:4px;font-size:14px;cursor:pointer;">Reconnect</button>';
-                            document.getElementById('reconnect-adb').onclick = function() {
-                                document.getElementById('adb-status').innerText = 'Mencoba reconnect...';
-                                fetch(`/ping/${ip}?port=${port}&method=adb`)
-                                    .then(res => res.json())
-                                    .then(data2 => {
-                                        if (data2.status === 'online') {
-                                            document.getElementById('adb-status').innerText = 'Reconnect berhasil. Status ADB: online';
-                                        } else {
-                                            document.getElementById('adb-status').innerText = 'Reconnect gagal. Status ADB: offline';
-                                        }
-                                    })
-                                    .catch(err => {
-                                        document.getElementById('adb-status').innerText = 'Error: ' + err;
-                                    });
-                            };
-                        }
-                    }
-                })
-                .catch(err => {
-                    document.getElementById('adb-status').innerText = 'Error: ' + err;
-                });
-        };
-
-        function sendCustomCmd(type) {
-            const cmd = type === 'on' ? document.getElementById('cmd-on').value : document.getElementById('cmd-off').value;
-            let confirmMsg = type === 'on' ? 'Yakin ingin menghidupkan TV?' : 'Yakin ingin mematikan TV?';
-            if (!cmd.trim()) {
-                document.getElementById('result').innerText = 'Perintah tidak boleh kosong!';
-                return;
-            }
-            Swal.fire({
-                title: 'Konfirmasi',
-                text: confirmMsg,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Ya',
-                cancelButtonText: 'Batal'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    fetch(`/custom-cmd`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ cmd })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        document.getElementById('result').innerText = JSON.stringify(data);
-                    })
-                    .catch(err => {
-                        document.getElementById('result').innerText = 'Error: ' + err;
-                    });
-                }
-            });
+      document.getElementById("check-adb").onclick = function () {
+        const ip = document.getElementById("ip").value;
+        const port = document.getElementById("port").value;
+        if (!ip || !port) {
+          document.getElementById("adb-status").innerText =
+            "IP dan port harus diisi!";
+          return;
         }
+        document.getElementById("adb-status").innerText = "Mengecek status...";
+        fetch(`/adb-status?ip=${ip}&port=${port}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.error) {
+              document.getElementById("adb-status").innerText =
+                "Error: " + data.message;
+            } else {
+              document.getElementById("adb-status").innerText =
+                "Status ADB: " + data.adb_status;
+              if (data.adb_status === "offline") {
+                document.getElementById("adb-status").innerHTML +=
+                  '<br><button id="reconnect-adb" style="margin-top:8px;background:#2196f3;color:#fff;padding:6px 18px;border:none;border-radius:4px;font-size:14px;cursor:pointer;">Reconnect</button>';
+                document.getElementById("reconnect-adb").onclick = function () {
+                  document.getElementById("adb-status").innerText =
+                    "Mencoba reconnect...";
+                  fetch(`/ping/${ip}?port=${port}&method=adb`)
+                    .then((res) => res.json())
+                    .then((data2) => {
+                      if (data2.status === "online") {
+                        document.getElementById("adb-status").innerText =
+                          "Reconnect berhasil. Status ADB: online";
+                      } else {
+                        document.getElementById("adb-status").innerText =
+                          "Reconnect gagal. Status ADB: offline";
+                      }
+                    })
+                    .catch((err) => {
+                      document.getElementById("adb-status").innerText =
+                        "Error: " + err;
+                    });
+                };
+              }
+            }
+          })
+          .catch((err) => {
+            document.getElementById("adb-status").innerText = "Error: " + err;
+          });
+      };
+
+      function sendPowerAction(action) {
+        const ip = document.getElementById("ip").value;
+        const port = document.getElementById("port").value;
+        const method = document.getElementById("method").value;
+        if (!ip || !port) {
+          document.getElementById("result").innerText =
+            "IP dan port harus diisi!";
+          return;
+        }
+        let confirmMsg =
+          action === "wake"
+            ? "Yakin ingin menghidupkan TV?"
+            : "Yakin ingin mematikan TV?";
+        Swal.fire({
+          title: "Konfirmasi",
+          text: confirmMsg,
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonText: "Ya",
+          cancelButtonText: "Batal",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            fetch(`/tv/${ip}/${action}?port=${port}&method=${method}`)
+              .then((res) => res.json())
+              .then((data) => {
+                document.getElementById("result").innerText =
+                  JSON.stringify(data);
+                setTimeout(checkTvStatus, 1200); // update status TV
+              })
+              .catch((err) => {
+                document.getElementById("result").innerText = "Error: " + err;
+              });
+          }
+        });
+      }
     </script>
     <script>
-        function updateTvStatusIndicator(status) {
-            const indicator = document.getElementById('tv-status-indicator');
-            const text = document.getElementById('tv-status-text');
-            const logo = document.getElementById('tv-logo');
-            if (status === 'on') {
-                indicator.style.background = '#4caf50';
-                text.textContent = 'Status: Hidup';
-                logo.style.filter = 'none';
-            } else if (status === 'off') {
-                indicator.style.background = '#222';
-                text.textContent = 'Status: Mati';
-                logo.style.filter = 'brightness(0.3)';
+      function updateTvStatusIndicator(status) {
+        const indicator = document.getElementById("tv-status-indicator");
+        const text = document.getElementById("tv-status-text");
+        const logo = document.getElementById("tv-logo");
+        if (status === "on") {
+          indicator.style.background = "#4caf50";
+          text.textContent = "Status: Hidup";
+          logo.style.filter = "none";
+        } else if (status === "off") {
+          indicator.style.background = "#222";
+          text.textContent = "Status: Mati";
+          logo.style.filter = "brightness(0.3)";
+        } else {
+          indicator.style.background = "#aaa";
+          text.textContent = "Status: Tidak diketahui";
+          logo.style.filter = "brightness(0.3)";
+        }
+      }
+
+      function checkTvStatus() {
+        const ip = document.getElementById("ip").value;
+        const port = document.getElementById("port").value;
+        const method = document.getElementById("method").value;
+        if (!ip || !port) {
+          updateTvStatusIndicator("unknown");
+          return;
+        }
+        fetch(`/tv-status/${ip}?port=${port}&method=${method}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data && data.status) {
+              updateTvStatusIndicator(data.status);
             } else {
-                indicator.style.background = '#aaa';
-                text.textContent = 'Status: Tidak diketahui';
-                logo.style.filter = 'brightness(0.3)';
+              updateTvStatusIndicator("unknown");
             }
-        }
+          })
+          .catch(() => {
+            updateTvStatusIndicator("unknown");
+          });
+      }
 
-        function checkTvStatus() {
-            const ip = document.getElementById('ip').value;
-            const port = document.getElementById('port').value;
-            const method = document.getElementById('method').value;
-            if (!ip || !port) {
-                updateTvStatusIndicator('unknown');
-                return;
-            }
-            fetch(`/tv-status/${ip}?port=${port}&method=${method}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data && data.status) {
-                        updateTvStatusIndicator(data.status);
-                    } else {
-                        updateTvStatusIndicator('unknown');
-                    }
-                })
-                .catch(() => {
-                    updateTvStatusIndicator('unknown');
-                });
-        }
+      // Cek status TV saat halaman dibuka
+      window.addEventListener("DOMContentLoaded", checkTvStatus);
 
-        // Cek status TV saat halaman dibuka
-        window.addEventListener('DOMContentLoaded', checkTvStatus);
+      // Cek status TV setiap kali IP/port/method diubah
+      document.getElementById("ip").addEventListener("change", checkTvStatus);
+      document.getElementById("port").addEventListener("change", checkTvStatus);
+      document
+        .getElementById("method")
+        .addEventListener("change", checkTvStatus);
 
-        // Cek status TV setiap kali IP/port/method diubah
-        document.getElementById('ip').addEventListener('change', checkTvStatus);
-        document.getElementById('port').addEventListener('change', checkTvStatus);
-        document.getElementById('method').addEventListener('change', checkTvStatus);
+      // Tombol cek status TV manual
+      document.getElementById("check-tv-status-btn").onclick = function () {
+        checkTvStatus();
+      };
 
-        // Tombol cek status TV manual
-        document.getElementById('check-tv-status-btn').onclick = function() {
-            checkTvStatus();
-        };
-
-        // Update status TV setelah aksi power
-        const oldSendAction = sendAction;
-        sendAction = function(action) {
-            oldSendAction(action);
-            setTimeout(checkTvStatus, 1200); // Delay sedikit agar status update
-        }
+      // Update status TV setelah aksi power
+      const oldSendAction = sendAction;
+      sendAction = function (action) {
+        oldSendAction(action);
+        setTimeout(checkTvStatus, 1200); // Delay sedikit agar status update
+      };
     </script>
-</body>
+  </body>
 </html>
