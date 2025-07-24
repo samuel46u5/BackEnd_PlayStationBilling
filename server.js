@@ -263,30 +263,21 @@ app.get("/tv/:ip/key/:keycode", (req, res) => {
 });
 
 // Install ADB if missing
-app.get("/install-adb", (req, res) => {
-  // Cek jika 'adb' belum ada
-  exec("adb version", (err, stdout, stderr) => {
-    if (err || stderr.includes("not recognized")) {
-      // Cek sistem operasi (hanya contoh untuk Linux)
-      exec("sudo apt-get update && sudo apt-get install -y android-tools-adb", (installErr, installStdout, installStderr) => {
-        if (installErr || installStderr) {
-          return res.json({
-            success: false,
-            message: "Failed to install ADB automatically. Please try installing it manually.",
-            error: installStderr || installErr.message,
-          });
-        }
-        
-        return res.json({
-          success: true,
-          message: "ADB successfully installed.",
-        });
-      });
-    } else {
-      res.json({ success: true, message: "ADB is already installed." });
-    }
+// Install ADB if missing
+app.get('/install-adb', (req, res) => {
+  // Cek jika 'adb' belum ada (hanya contoh kasar)
+  exec('adb version', (err, stdout, stderr) => {
+      if (err || stderr.includes('not recognized')) {
+          // Contoh: auto-download adb di Linux
+          // Untuk produksi, kamu harus menyesuaikan sistem operasi dan persetujuan pengguna
+          return res.json({ success: false, message: 'ADB not installed manually. Please install it manually.' });
+      } else {
+          res.json({ success: true });
+      }
   });
 });
+
+
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`TV controller backend running at http://0.0.0.0:${port}`);
