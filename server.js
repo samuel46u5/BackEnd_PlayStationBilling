@@ -2,58 +2,61 @@ const express = require("express");
 const cors = require("cors");
 const { exec } = require("child_process");
 const app = express();
-const port = 3002;
+const port = 3001;
 
 app.use(cors());
 
 // Endpoint untuk cek status TV (hidup/mati)
 app.get("/tv-status/:ip", (req, res) => {
+  // ...existing code...
+});
+
+
+app.get("/tv-status2/:ip", (req, res) => {
   const { ip } = req.params;
   const { port, method } = req.query;
+
   if (!ip || !port || !method) {
     return res.json({
       status: "unknown",
       message: "IP, port, dan method harus diisi",
     });
   }
+
   if (method === "adb") {
-    // Cek status power via dumpsys power (Android)
-    exec(`adb connect ${ip}:${port}`, (err, stdout, stderr) => {
+    exec(`adb connect ${ip}:${port}`, (err, _unused, stderr) => {
       if (err || (stderr && stderr.includes("failed"))) {
-        return res.json({ status: "unknown", message: stderr || err.message });
+        return res.json({
+          status: "unknown",
+          message: stderr || err.message,
+        });
       }
-      exec(`adb shell dumpsys power`, (err2, stdout2, stderr2) => {
+
+      exec(`adb -s ${ip}:${port} shell dumpsys power | findstr "mWakefulness"`, (err2, stdout2, stderr2) => {
         if (err2 || stderr2) {
           return res.json({
             status: "unknown",
             message: stderr2 || err2.message,
           });
         }
-        // Cari baris mScreenOn atau Display Power: state=ON/OFF
         let status = "unknown";
-        if (
-          /Display Power: state=ON|mScreenOn=true|Display Power: state=ON/i.test(
-            stdout2
-          )
-        ) {
-          status = "on";
-        } else if (
-          /Display Power: state=OFF|mScreenOn=false|Display Power: state=OFF/i.test(
-            stdout2
-          )
-        ) {
-          status = "off";
+        const match = stdout2.match(/mWakefulness=(Awake|Asleep)/);
+        if (match) {
+          if (match[1] === "Awake") {
+            status = "on";
+          } else if (match[1] === "Asleep") {
+            status = "off";
+          }
         }
         res.json({ status });
       });
     });
   } else if (method === "tv_server") {
-    // Asumsi ada endpoint /status yang mengembalikan status TV
     exec(`curl --max-time 2 http://${ip}:${port}/status`, (err, stdout) => {
       if (err) {
         return res.json({ status: "unknown", message: err.message });
       }
-      // stdout diharapkan JSON: { status: "on" } atau { status: "off" }
+
       try {
         const data = JSON.parse(stdout);
         if (data.status === "on" || data.status === "off") {
@@ -75,6 +78,8 @@ app.get("/tv-status/:ip", (req, res) => {
     res.json({ status: "unknown", message: "Method tidak dikenali" });
   }
 });
+
+
 
 // Cek status ADB device
 app.get("/adb-status", (req, res) => {
