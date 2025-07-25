@@ -2,13 +2,99 @@ const express = require("express");
 const cors = require("cors");
 const { exec } = require("child_process");
 const app = express();
-const port = 3001;
+const port = 3002;
 
 app.use(cors());
 
 // Endpoint untuk cek status TV (hidup/mati)
 app.get("/tv-status/:ip", (req, res) => {
-  // ...existing code...
+  const { ip } = req.params;
+  const { port, method } = req.query;
+  if (!ip || !port || !method) {
+    return res.json({
+      status: "unknown",
+      message: "IP, port, dan method harus diisi",
+    });
+  }
+  if (method === "adb") {
+    // Cek status power via dumpsys power (Android)
+    exec(`adb connect ${ip}:${port}`, (err, stdout, stderr) => {
+      if (err || (stderr && stderr.includes("failed"))) {
+        return res.json({ status: "unknown", message: stderr || err.message });
+      }
+      exec(`adb shell dumpsys power`, (err2, stdout2, stderr2) => {
+        if (err2 || stderr2) {
+          return res.json({
+            status: "unknown",
+            message: stderr2 || err2.message,
+          });
+        }
+        // Cari baris mScreenOn atau Display Power: state=ON/OFF
+        let status = "unknown";
+        if (
+          /Display Power: state=ON|mScreenOn=true|Display Power: state=ON/i.test(
+            stdout2
+          )
+        ) {
+          status = "on";
+        } else if (
+          /Display Power: state=OFF|mScreenOn=false|Display Power: state=OFF/i.test(
+            stdout2
+          )
+        ) {
+          status = "off";
+        }
+        res.json({ status });
+      });
+    });
+  } else if (method === "tv_server") {
+    // Asumsi ada endpoint /status yang mengembalikan status TV
+    exec(`curl --max-time 2 http://${ip}:${port}/status`, (err, stdout) => {
+      if (err) {
+        return res.json({ status: "unknown", message: err.message });
+      }
+      // stdout diharapkan JSON: { status: "on" } atau { status: "off" }
+      try {
+        const data = JSON.parse(stdout);
+        if (data.status === "on" || data.status === "off") {
+          res.json({ status: data.status });
+        } else {
+          res.json({
+            status: "unknown",
+            message: "Format status tidak dikenali",
+          });
+        }
+      } catch (e) {
+        res.json({
+          status: "unknown",
+          message: "Gagal parse status TV server",
+        });
+      }
+    });
+  } else {
+    res.json({ status: "unknown", message: "Method tidak dikenali" });
+  }
+});
+
+// Cek status ADB device
+app.get("/adb-status", (req, res) => {
+  const { ip, port } = req.query;
+  if (!ip || !port) {
+    return res.json({ error: true, message: "IP dan port harus diisi!" });
+  }
+  exec("adb devices", (err, stdout, stderr) => {
+    if (err) {
+      return res.json({ error: true, message: stderr || err.message });
+    }
+    const deviceLine = stdout.split("\n").find((line) => line.includes(ip));
+    let adb_status = "not connected";
+    if (deviceLine) {
+      if (deviceLine.includes("device")) adb_status = "online";
+      else if (deviceLine.includes("offline")) adb_status = "offline";
+      else adb_status = deviceLine.trim();
+    }
+    res.json({ ip, port, adb_status });
+  });
 });
 
 
