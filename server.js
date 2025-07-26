@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { exec } = require("child_process");
 const app = express();
-const port = 3002;
+const port = 3001;
 
 app.use(cors());
 
