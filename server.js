@@ -36,7 +36,25 @@ app.get('/relay/:ip/off', (req, res) => {
 
 app.get('/relay/:ip/status', (req, res) => {
   const { ip } = req.params;
-  tasmotaRequest(ip, 'Power', (result) => res.json(result));
+  tasmotaRequest(ip, 'Power', (result) => {
+    // result.raw biasanya string JSON dari Tasmota, misal: {"POWER":"ON"}
+    let power = null;
+    if (result && result.data && typeof result.data.POWER !== 'undefined') {
+      power = result.data.POWER;
+    } else if (result && result.raw) {
+      try {
+        const parsed = JSON.parse(result.raw);
+        if (typeof parsed.POWER !== 'undefined') {
+          power = parsed.POWER;
+        }
+      } catch {}
+    }
+    if (power === 'ON' || power === 'OFF') {
+      res.json({ POWER: power });
+    } else {
+      res.json({ POWER: 'UNKNOWN' });
+    }
+  });
 });
 
 // Endpoint untuk cek status TV (hidup/mati)
