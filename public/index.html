@@ -204,6 +204,78 @@
 </div>
         </div>
       </details>
+
+      <div id="api-tester-panel" style="margin-top:32px; padding:18px 0 0 0; border-top:1px solid #eee;">
+        <h3 style="font-size:18px; margin-bottom:10px;">🔎 API Tester</h3>
+        <label for="api-endpoint" style="font-weight:bold;">Pilih Endpoint:</label>
+        <select id="api-endpoint" style="width:100%;padding:7px 4px;margin-bottom:10px;">
+          <option value="/tv-status/:ip?port=:port&method=:method">GET /tv-status/:ip?port=:port&method=:method</option>
+          <option value="/tv-status2/:ip?port=:port&method=:method">GET /tv-status2/:ip?port=:port&method=:method</option>
+          <option value="/adb-status?ip=:ip&port=:port">GET /adb-status?ip=:ip&port=:port</option>
+          <option value="/ping/:ip?port=:port&method=:method">GET /ping/:ip?port=:port&method=:method</option>
+          <option value="/tv/:ip/:action?port=:port&method=:method">GET /tv/:ip/:action?port=:port&method=:method</option>
+          <option value="/tv/:ip/key/:keycode?port=:port&method=:method">GET /tv/:ip/key/:keycode?port=:port&method=:method</option>
+          <option value="/install-adb">GET /install-adb</option>
+        </select>
+        <div id="api-params"></div>
+        <button id="run-api-btn" style="margin-top:10px;background:#2196f3;color:#fff;padding:10px 24px;border:none;border-radius:4px;font-size:15px;cursor:pointer;">Run/Test</button>
+        <div id="api-output" style="margin-top:16px;white-space:pre-wrap;background:#f8f8f8;border-radius:6px;padding:12px 10px;font-size:14px;color:#222;min-height:32px;"></div>
+      </div>
+      <script>
+      // API Tester logic
+      const endpointParams = {
+        "/tv-status/:ip?port=:port&method=:method": ["ip", "port", "method"],
+        "/tv-status2/:ip?port=:port&method=:method": ["ip", "port", "method"],
+        "/adb-status?ip=:ip&port=:port": ["ip", "port"],
+        "/ping/:ip?port=:port&method=:method": ["ip", "port", "method"],
+        "/tv/:ip/:action?port=:port&method=:method": ["ip", "action", "port", "method"],
+        "/tv/:ip/key/:keycode?port=:port&method=:method": ["ip", "keycode", "port", "method"],
+        "/install-adb": []
+      };
+      const paramDefaults = {
+        ip: "192.168.200.226",
+        port: "5555",
+        method: "adb",
+        action: "wake",
+        keycode: "26"
+      };
+      function renderApiParams() {
+        const endpoint = document.getElementById('api-endpoint').value;
+        const params = endpointParams[endpoint] || [];
+        let html = '';
+        params.forEach(p => {
+          html += `<label style='margin-top:6px;'>${p}:</label><input type='text' id='api-param-${p}' value='${paramDefaults[p]||''}' style='width:100%;padding:6px 4px;margin-bottom:4px;' />`;
+        });
+        document.getElementById('api-params').innerHTML = html;
+      }
+      document.getElementById('api-endpoint').onchange = renderApiParams;
+      renderApiParams();
+      document.getElementById('run-api-btn').onclick = async function() {
+        const endpointTpl = document.getElementById('api-endpoint').value;
+        let url = endpointTpl;
+        const params = endpointParams[endpointTpl] || [];
+        params.forEach(p => {
+          const v = document.getElementById('api-param-'+p).value;
+          url = url.replace(':'+p, encodeURIComponent(v));
+        });
+        // Query string
+        if(url.includes('?')) {
+          // already has ?
+        } else if(params.length>0) {
+          // no query, do nothing
+        }
+        document.getElementById('api-output').textContent = 'Loading...';
+        try {
+          const res = await fetch(url);
+          const txt = await res.text();
+          let out;
+          try { out = JSON.stringify(JSON.parse(txt),null,2); } catch { out = txt; }
+          document.getElementById('api-output').textContent = out;
+        } catch(e) {
+          document.getElementById('api-output').textContent = 'Error: '+e;
+        }
+      };
+      </script>
     </div>
     <script>
       document.getElementById("check-adb").onclick = function () {
