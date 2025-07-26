@@ -190,6 +190,9 @@
   <li><b>GET /tv/:ip/:action?port=PORT&method=adb|tv_server</b><br><span style="font-size:13px;">Kirim perintah power (wake/sleep/power) ke TV.<br>Contoh: <code>/tv/192.168.200.226/wake?port=5555&method=adb</code></span></li>
   <li><b>GET /tv/:ip/key/:keycode?port=PORT&method=adb|tv_server</b><br><span style="font-size:13px;">Kirim keycode tertentu ke TV.</span></li>
   <li><b>GET /install-adb</b><br><span style="font-size:13px;">Cek apakah ADB sudah terpasang di server backend.</span></li>
+  <li><b>GET /relay/:ip/on</b><br><span style="font-size:13px;">Menyalakan relay (Power On) pada perangkat Tasmota.</span></li>
+  <li><b>GET /relay/:ip/off</b><br><span style="font-size:13px;">Mematikan relay (Power Off) pada perangkat Tasmota.</span></li>
+  <li><b>GET /relay/:ip/status</b><br><span style="font-size:13px;">Mengecek status relay (Power) pada perangkat Tasmota.</span></li>
 </ul>
 <div style="margin-top:10px; font-size:13px; color:#444;">
 <b>Keterangan Parameter:</b><br>
@@ -199,6 +202,11 @@
   <li><b>method</b> : Pilih antara <code>adb</code> atau <code>tv_server</code></li>
   <li><b>action</b> : Perintah power (<code>wake</code>, <code>sleep</code>, <code>power</code>)</li>
   <li><b>keycode</b> : Kode tombol/key event Android</li>
+  <li><b>relay (Tasmota)</b> :
+    <ul style="padding-left:18px;">
+      <li><b>ip</b> : IP address perangkat Tasmota</li>
+    </ul>
+  </li>
 </ul>
 <i>Setiap endpoint akan mengembalikan response JSON sesuai hasil eksekusi perintah.</i>
 </div>
@@ -216,6 +224,9 @@
           <option value="/tv/:ip/:action?port=:port&method=:method">GET /tv/:ip/:action?port=:port&method=:method</option>
           <option value="/tv/:ip/key/:keycode?port=:port&method=:method">GET /tv/:ip/key/:keycode?port=:port&method=:method</option>
           <option value="/install-adb">GET /install-adb</option>
+          <option value="/relay/:ip/on">GET /relay/:ip/on</option>
+          <option value="/relay/:ip/off">GET /relay/:ip/off</option>
+          <option value="/relay/:ip/status">GET /relay/:ip/status</option>
         </select>
         <div id="api-params"></div>
         <button id="run-api-btn" style="margin-top:10px;background:#2196f3;color:#fff;padding:10px 24px;border:none;border-radius:4px;font-size:15px;cursor:pointer;">Run/Test</button>
@@ -230,7 +241,10 @@
         "/ping/:ip?port=:port&method=:method": ["ip", "port", "method"],
         "/tv/:ip/:action?port=:port&method=:method": ["ip", "action", "port", "method"],
         "/tv/:ip/key/:keycode?port=:port&method=:method": ["ip", "keycode", "port", "method"],
-        "/install-adb": []
+        "/install-adb": [],
+        "/relay/:ip/on": ["ip"],
+        "/relay/:ip/off": ["ip"],
+        "/relay/:ip/status": ["ip"]
       };
       const paramDefaults = {
         ip: "192.168.200.226",

@@ -1,10 +1,43 @@
+// Endpoint untuk relay Tasmota (ON, OFF, STATUS)
+
 const express = require("express");
 const cors = require("cors");
 const { exec } = require("child_process");
 const app = express();
-const port = 3001;
+const port = 3002;
 
 app.use(cors());
+
+
+const http = require('http');
+
+function tasmotaRequest(ip, cmnd, cb) {
+  const url = `http://${ip}/cm?cmnd=${encodeURIComponent(cmnd)}`;
+  exec(`curl --max-time 3 "${url}"`, (err, stdout, stderr) => {
+    if (err) return cb({ success: false, message: stderr || err.message });
+    try {
+      const data = JSON.parse(stdout);
+      cb({ success: true, data });
+    } catch {
+      cb({ success: true, raw: stdout });
+    }
+  });
+}
+
+app.get('/relay/:ip/on', (req, res) => {
+  const { ip } = req.params;
+  tasmotaRequest(ip, 'Power On', (result) => res.json(result));
+});
+
+app.get('/relay/:ip/off', (req, res) => {
+  const { ip } = req.params;
+  tasmotaRequest(ip, 'Power Off', (result) => res.json(result));
+});
+
+app.get('/relay/:ip/status', (req, res) => {
+  const { ip } = req.params;
+  tasmotaRequest(ip, 'Power', (result) => res.json(result));
+});
 
 // Endpoint untuk cek status TV (hidup/mati)
 app.get("/tv-status/:ip", (req, res) => {

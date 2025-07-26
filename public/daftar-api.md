@@ -1,3 +1,10 @@
+## 7. Kontrol Relay Tasmota
+- **GET /relay/:ip/on**
+  - Menyalakan relay (Power On) pada perangkat Tasmota.
+- **GET /relay/:ip/off**
+  - Mematikan relay (Power Off) pada perangkat Tasmota.
+- **GET /relay/:ip/status**
+  - Mengecek status relay (Power) pada perangkat Tasmota.
 # Daftar API Backend TV Controller
 
 Berikut adalah daftar endpoint API yang tersedia di backend:
