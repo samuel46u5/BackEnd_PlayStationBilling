@@ -179,6 +179,31 @@
         </button>
       </div>
       <div class="result" id="result"></div>
+      <details style="margin-top:32px;">
+        <summary style="font-size:17px;font-weight:bold;cursor:pointer;">📚 Daftar API Backend</summary>
+        <div style="padding:12px 0 0 0; font-size:15px; color:#222;">
+<ul style="padding-left:18px;">
+  <li><b>GET /tv-status/:ip?port=PORT&method=adb|tv_server</b><br><span style="font-size:13px;">Cek status hidup/mati TV via ADB atau TV Server.</span></li>
+  <li><b>GET /tv-status2/:ip?port=PORT&method=adb|tv_server</b><br><span style="font-size:13px;">Cek status TV (versi lain, menggunakan mWakefulness untuk ADB).</span></li>
+  <li><b>GET /adb-status?ip=IP&port=PORT</b><br><span style="font-size:13px;">Cek status koneksi ADB ke device tertentu.</span></li>
+  <li><b>GET /ping/:ip?port=PORT&method=adb|tv_server</b><br><span style="font-size:13px;">Cek konektivitas ke TV (ADB atau TV Server).</span></li>
+  <li><b>GET /tv/:ip/:action?port=PORT&method=adb|tv_server</b><br><span style="font-size:13px;">Kirim perintah power (wake/sleep/power) ke TV.<br>Contoh: <code>/tv/192.168.200.226/wake?port=5555&method=adb</code></span></li>
+  <li><b>GET /tv/:ip/key/:keycode?port=PORT&method=adb|tv_server</b><br><span style="font-size:13px;">Kirim keycode tertentu ke TV.</span></li>
+  <li><b>GET /install-adb</b><br><span style="font-size:13px;">Cek apakah ADB sudah terpasang di server backend.</span></li>
+</ul>
+<div style="margin-top:10px; font-size:13px; color:#444;">
+<b>Keterangan Parameter:</b><br>
+<ul style="padding-left:18px;">
+  <li><b>ip</b> : IP address TV</li>
+  <li><b>port</b> : Port ADB atau TV Server</li>
+  <li><b>method</b> : Pilih antara <code>adb</code> atau <code>tv_server</code></li>
+  <li><b>action</b> : Perintah power (<code>wake</code>, <code>sleep</code>, <code>power</code>)</li>
+  <li><b>keycode</b> : Kode tombol/key event Android</li>
+</ul>
+<i>Setiap endpoint akan mengembalikan response JSON sesuai hasil eksekusi perintah.</i>
+</div>
+        </div>
+      </details>
     </div>
     <script>
       document.getElementById("check-adb").onclick = function () {
