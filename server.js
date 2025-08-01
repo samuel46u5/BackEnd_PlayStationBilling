@@ -5,6 +5,7 @@ const cors = require("cors");
 const { exec } = require("child_process");
 const app = express();
 const port = 3002;
+const port2 = 3001;
 
 app.use(cors());
 
@@ -426,4 +427,7 @@ app.get('/install-adb', (req, res) => {
 
 app.listen(port, () => {
   console.log(`TV controller backend running at http://localhost:${port}`);
+});
+app.listen(port2, () => {
+  console.log(`TV controller backend running at http://localhost:${port2}`);
 });
