@@ -9,8 +9,7 @@ const port2 = 3001;
 
 app.use(cors());
 
-
-const http = require('http');
+const http = require("http");
 
 function tasmotaRequest(ip, cmnd, cb) {
   const url = `http://${ip}/cm?cmnd=${encodeURIComponent(cmnd)}`;
@@ -25,35 +24,35 @@ function tasmotaRequest(ip, cmnd, cb) {
   });
 }
 
-app.get('/relay/:ip/on', (req, res) => {
+app.get("/relay/:ip/on", (req, res) => {
   const { ip } = req.params;
-  tasmotaRequest(ip, 'Power On', (result) => res.json(result));
+  tasmotaRequest(ip, "Power On", (result) => res.json(result));
 });
 
-app.get('/relay/:ip/off', (req, res) => {
+app.get("/relay/:ip/off", (req, res) => {
   const { ip } = req.params;
-  tasmotaRequest(ip, 'Power Off', (result) => res.json(result));
+  tasmotaRequest(ip, "Power Off", (result) => res.json(result));
 });
 
-app.get('/relay/:ip/status', (req, res) => {
+app.get("/relay/:ip/status", (req, res) => {
   const { ip } = req.params;
-  tasmotaRequest(ip, 'Power', (result) => {
+  tasmotaRequest(ip, "Power", (result) => {
     // result.raw biasanya string JSON dari Tasmota, misal: {"POWER":"ON"}
     let power = null;
-    if (result && result.data && typeof result.data.POWER !== 'undefined') {
+    if (result && result.data && typeof result.data.POWER !== "undefined") {
       power = result.data.POWER;
     } else if (result && result.raw) {
       try {
         const parsed = JSON.parse(result.raw);
-        if (typeof parsed.POWER !== 'undefined') {
+        if (typeof parsed.POWER !== "undefined") {
           power = parsed.POWER;
         }
       } catch {}
     }
-    if (power === 'ON' || power === 'OFF') {
+    if (power === "ON" || power === "OFF") {
       res.json({ POWER: power });
     } else {
-      res.json({ POWER: 'UNKNOWN' });
+      res.json({ POWER: "UNKNOWN" });
     }
   });
 });
@@ -74,30 +73,33 @@ app.get("/tv-status/:ip", (req, res) => {
       if (err || (stderr && stderr.includes("failed"))) {
         return res.json({ status: "unknown", message: stderr || err.message });
       }
-      exec(`adb shell dumpsys power`, (err2, stdout2, stderr2) => {
-        if (err2 || stderr2) {
-          return res.json({
-            status: "unknown",
-            message: stderr2 || err2.message,
-          });
+      exec(
+        `adb -s ${ip}:${port} shell dumpsys power`,
+        (err2, stdout2, stderr2) => {
+          if (err2 || stderr2) {
+            return res.json({
+              status: "unknown",
+              message: stderr2 || err2.message,
+            });
+          }
+          // Cari baris mScreenOn atau Display Power: state=ON/OFF
+          let status = "unknown";
+          if (
+            /Display Power: state=ON|mScreenOn=true|Display Power: state=ON/i.test(
+              stdout2
+            )
+          ) {
+            status = "on";
+          } else if (
+            /Display Power: state=OFF|mScreenOn=false|Display Power: state=OFF/i.test(
+              stdout2
+            )
+          ) {
+            status = "off";
+          }
+          res.json({ status });
         }
-        // Cari baris mScreenOn atau Display Power: state=ON/OFF
-        let status = "unknown";
-        if (
-          /Display Power: state=ON|mScreenOn=true|Display Power: state=ON/i.test(
-            stdout2
-          )
-        ) {
-          status = "on";
-        } else if (
-          /Display Power: state=OFF|mScreenOn=false|Display Power: state=OFF/i.test(
-            stdout2
-          )
-        ) {
-          status = "off";
-        }
-        res.json({ status });
-      });
+      );
     });
   } else if (method === "tv_server") {
     // Asumsi ada endpoint /status yang mengembalikan status TV
@@ -149,7 +151,6 @@ app.get("/adb-status", (req, res) => {
   });
 });
 
-
 app.get("/tv-status2/:ip", (req, res) => {
   const { ip } = req.params;
   const { port, method } = req.query;
@@ -170,24 +171,27 @@ app.get("/tv-status2/:ip", (req, res) => {
         });
       }
 
-      exec(`adb -s ${ip}:${port} shell dumpsys power | findstr "mWakefulness"`, (err2, stdout2, stderr2) => {
-        if (err2 || stderr2) {
-          return res.json({
-            status: "unknown",
-            message: stderr2 || err2.message,
-          });
-        }
-        let status = "unknown";
-        const match = stdout2.match(/mWakefulness=(Awake|Asleep)/);
-        if (match) {
-          if (match[1] === "Awake") {
-            status = "on";
-          } else if (match[1] === "Asleep") {
-            status = "off";
+      exec(
+        `adb -s ${ip}:${port} shell dumpsys power | findstr "mWakefulness"`,
+        (err2, stdout2, stderr2) => {
+          if (err2 || stderr2) {
+            return res.json({
+              status: "unknown",
+              message: stderr2 || err2.message,
+            });
           }
+          let status = "unknown";
+          const match = stdout2.match(/mWakefulness=(Awake|Asleep)/);
+          if (match) {
+            if (match[1] === "Awake") {
+              status = "on";
+            } else if (match[1] === "Asleep") {
+              status = "off";
+            }
+          }
+          res.json({ status });
         }
-        res.json({ status });
-      });
+      );
     });
   } else if (method === "tv_server") {
     exec(`curl --max-time 2 http://${ip}:${port}/status`, (err, stdout) => {
@@ -216,8 +220,6 @@ app.get("/tv-status2/:ip", (req, res) => {
     res.json({ status: "unknown", message: "Method tidak dikenali" });
   }
 });
-
-
 
 // Cek status ADB device
 app.get("/adb-status", (req, res) => {
@@ -289,64 +291,68 @@ app.get("/tv/:ip/:action", (req, res) => {
     const needConnect =
       lastAdbConnected.ip !== ip || lastAdbConnected.port !== port;
     const doKeyevent = (cb) => {
-      exec(`adb shell input keyevent ${keycode}`, (err, stdout, stderr) => {
-        if (err) {
-          if (action === "wake") {
-            // Jika gagal hidupkan, coba reconnect lalu cek status
-            exec(`adb connect ${ip}:${port}`, (err2, stdout2, stderr2) => {
-              if (err2 || (stderr2 && stderr2.includes("failed"))) {
-                return res.json({
-                  error: true,
-                  message: "Gagal reconnect ADB: " + (stderr2 || err2.message),
-                });
-              }
-              // Cek status ADB
-              exec("adb devices", (err3, stdout3, stderr3) => {
-                if (err3) {
+      exec(
+        `adb -s ${ip}:${port} shell input keyevent ${keycode}`,
+        (err, stdout, stderr) => {
+          if (err) {
+            if (action === "wake") {
+              // Jika gagal hidupkan, coba reconnect lalu cek status
+              exec(`adb connect ${ip}:${port}`, (err2, stdout2, stderr2) => {
+                if (err2 || (stderr2 && stderr2.includes("failed"))) {
                   return res.json({
                     error: true,
                     message:
-                      "Gagal cek status ADB: " + (stderr3 || err3.message),
+                      "Gagal reconnect ADB: " + (stderr2 || err2.message),
                   });
                 }
-                const deviceLine = stdout3
-                  .split("\n")
-                  .find((line) => line.includes(ip));
-                if (deviceLine && deviceLine.includes("device")) {
-                  // Sudah online, ulangi perintah hidupkan
-                  exec(
-                    `adb shell input keyevent ${keycode}`,
-                    (err4, stdout4, stderr4) => {
-                      if (err4) {
+                // Cek status ADB
+                exec("adb devices", (err3, stdout3, stderr3) => {
+                  if (err3) {
+                    return res.json({
+                      error: true,
+                      message:
+                        "Gagal cek status ADB: " + (stderr3 || err3.message),
+                    });
+                  }
+                  const deviceLine = stdout3
+                    .split("\n")
+                    .find((line) => line.includes(ip));
+                  if (deviceLine && deviceLine.includes("device")) {
+                    // Sudah online, ulangi perintah hidupkan
+                    exec(
+                      `adb -s ${ip}:${port} shell input keyevent ${keycode}`,
+                      (err4, stdout4, stderr4) => {
+                        if (err4) {
+                          return res.json({
+                            error: true,
+                            message:
+                              "Gagal hidupkan TV setelah reconnect: " +
+                              (stderr4 || err4.message),
+                          });
+                        }
                         return res.json({
-                          error: true,
-                          message:
-                            "Gagal hidupkan TV setelah reconnect: " +
-                            (stderr4 || err4.message),
+                          success: true,
+                          used_method: "adb",
+                          reconnected: true,
                         });
                       }
-                      return res.json({
-                        success: true,
-                        used_method: "adb",
-                        reconnected: true,
-                      });
-                    }
-                  );
-                } else {
-                  return res.json({
-                    error: true,
-                    message: "ADB tetap offline setelah reconnect.",
-                  });
-                }
+                    );
+                  } else {
+                    return res.json({
+                      error: true,
+                      message: "ADB tetap offline setelah reconnect.",
+                    });
+                  }
+                });
               });
-            });
-            return;
-          } else {
-            return res.json({ error: true, message: stderr || err.message });
+              return;
+            } else {
+              return res.json({ error: true, message: stderr || err.message });
+            }
           }
+          res.json({ success: true, used_method: "adb" });
         }
-        res.json({ success: true, used_method: "adb" });
-      });
+      );
     };
     if (needConnect) {
       exec(`adb connect ${ip}:${port}`, (err, stdout, stderr) => {
@@ -380,12 +386,15 @@ app.get("/tv/:ip/key/:keycode", (req, res) => {
     const needConnect =
       lastAdbConnected.ip !== ip || lastAdbConnected.port !== port;
     const doKeyevent = () => {
-      exec(`adb shell input keyevent ${keycode}`, (err, stdout, stderr) => {
-        if (err) {
-          return res.json({ error: true, message: stderr || err.message });
+      exec(
+        `adb -s ${ip}:${port} shell input keyevent ${keycode}`,
+        (err, stdout, stderr) => {
+          if (err) {
+            return res.json({ error: true, message: stderr || err.message });
+          }
+          res.json({ success: true, used_method: "adb" });
         }
-        res.json({ success: true, used_method: "adb" });
-      });
+      );
     };
     if (needConnect) {
       exec(`adb connect ${ip}:${port}`, (err, stdout, stderr) => {
@@ -410,20 +419,21 @@ app.get("/tv/:ip/key/:keycode", (req, res) => {
 
 // Install ADB if missing
 // Install ADB if missing
-app.get('/install-adb', (req, res) => {
+app.get("/install-adb", (req, res) => {
   // Cek jika 'adb' belum ada (hanya contoh kasar)
-  exec('adb version', (err, stdout, stderr) => {
-      if (err || stderr.includes('not recognized')) {
-          // Contoh: auto-download adb di Linux
-          // Untuk produksi, kamu harus menyesuaikan sistem operasi dan persetujuan pengguna
-          return res.json({ success: false, message: 'ADB not installed manually. Please install it manually.' });
-      } else {
-          res.json({ success: true });
-      }
+  exec("adb version", (err, stdout, stderr) => {
+    if (err || stderr.includes("not recognized")) {
+      // Contoh: auto-download adb di Linux
+      // Untuk produksi, kamu harus menyesuaikan sistem operasi dan persetujuan pengguna
+      return res.json({
+        success: false,
+        message: "ADB not installed manually. Please install it manually.",
+      });
+    } else {
+      res.json({ success: true });
+    }
   });
 });
-
-
 
 app.listen(port, () => {
   console.log(`TV controller backend running at http://localhost:${port}`);
