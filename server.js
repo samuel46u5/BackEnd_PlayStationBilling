@@ -435,6 +435,45 @@ app.get("/install-adb", (req, res) => {
   });
 });
 
+// Set Volume
+app.get("/tv/:ip/volume/:level", (req, res) => {
+  const { ip, level } = req.params;
+  const { port, method } = req.query;
+
+  if (method === "adb") {
+    const needConnect =
+      lastAdbConnected.ip !== ip || lastAdbConnected.port !== port;
+
+    const doSetVolume = () => {
+      const cmd = `adb -s ${ip}:${port} shell cmd media_session volume --stream 3 --set ${level}`;
+      exec(cmd, (err, stdout, stderr) => {
+        if (err || (stderr && stderr.includes("Error"))) {
+          return res.json({ error: true, message: stderr || err.message });
+        }
+        res.json({ success: true, used_method: "adb", volume_set: level });
+      });
+    };
+
+    if (needConnect) {
+      exec(`adb connect ${ip}:${port}`, (err, stdout, stderr) => {
+        if (err || (stderr && stderr.includes("failed"))) {
+          return res.json({ error: true, message: stderr || err.message });
+        }
+        lastAdbConnected = { ip, port };
+        doSetVolume();
+      });
+    } else {
+      doSetVolume();
+    }
+  } else {
+    // Method selain ADB tidak didukung untuk set volume
+    res.json({
+      error: true,
+      message: "Only method=adb is supported for volume",
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`TV controller backend running at http://localhost:${port}`);
 });
