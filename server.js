@@ -286,7 +286,10 @@ app.get("/tv/:ip/:action", (req, res) => {
     let keycode;
     if (action === "sleep" || action === "wake" || action === "power")
       keycode = 26;
-    else return res.json({ error: true, message: "Unknown action" });
+
+
+    if(action==="volume_up") keycode = 24;
+    else if(action==="volume_down") keycode = 25;
 
     const needConnect =
       lastAdbConnected.ip !== ip || lastAdbConnected.port !== port;
@@ -375,6 +378,32 @@ app.get("/tv/:ip/:action", (req, res) => {
     });
   }
 });
+
+// ...existing code...
+
+app.get("/tv/:ip/volume", (req, res) => {
+  const { ip } = req.params;
+  const { port } = req.query;
+
+  exec(`adb connect ${ip}:${port}`, (err, stdout, stderr) => {
+    if (err || (stderr && stderr.includes("failed"))) {
+      return res.json({ error: true, message: stderr || err.message });
+    }
+    exec(
+      `adb -s ${ip}:${port} shell cmd media_session volume --stream 3 --get`,
+      (err2, stdout2, stderr2) => {
+        if (err2) {
+          return res.json({ error: true, message: stderr2 || err2.message });
+        }
+        // Ambil nilai volume dari output
+        const match = stdout2.match(/volume is:(\d+)/);
+        const volume = match ? parseInt(match[1], 10) : null;
+        res.json({ volume, raw: stdout2 });
+      }
+    );
+  });
+});
+
 
 // Send raw keycode
 
