@@ -2,12 +2,23 @@
 
 const express = require("express");
 const cors = require("cors");
+const dotenv = require("dotenv");
+dotenv.config();
 const { exec } = require("child_process");
 const app = express();
-const port = 3002;
-const port2 = 3001;
+const port = 3001;
+const port2 = 3002;
 
 app.use(cors());
+
+const HEADERS = {
+  apikey: process.env.SUPABASE_API_KEY,
+  Authorization: `Bearer ${process.env.SUPABASE_API_KEY}`,
+  "Content-Type": "application/json",
+  Prefer: "return=representation",
+};
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
 
 const http = require("http");
 
@@ -287,9 +298,8 @@ app.get("/tv/:ip/:action", (req, res) => {
     if (action === "sleep" || action === "wake" || action === "power")
       keycode = 26;
 
-
-    if(action==="volume_up") keycode = 24;
-    else if(action==="volume_down") keycode = 25;
+    if (action === "volume_up") keycode = 24;
+    else if (action === "volume_down") keycode = 25;
 
     const needConnect =
       lastAdbConnected.ip !== ip || lastAdbConnected.port !== port;
@@ -404,7 +414,6 @@ app.get("/tv/:ip/volume", (req, res) => {
   });
 });
 
-
 // Send raw keycode
 
 app.get("/tv/:ip/key/:keycode", (req, res) => {
@@ -503,9 +512,460 @@ app.get("/tv/:ip/volume/:level", (req, res) => {
   }
 });
 
+// ESP32 API
+app.get("/console", async (req, res) => {
+  const ip = req.query.ip;
+  if (!ip) {
+    return res.status(400).json({ error: "Param ip tidak ditemukan" });
+  }
+
+  const url = `${SUPABASE_URL}consoles?select=id,auto_shutdown_enabled,relay_command_on,relay_command_off,relay_command_status,power_tv_command,perintah_cek_power_tv,rate_profiles(hourly_rate)&ip_esp32=eq.${ip}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: HEADERS,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: data });
+    }
+
+    return res.json(data[0] || {});
+  } catch (error) {
+    console.error("Proxy error:", error);
+    return res.status(500).json({ error: "Gagal fetch ke Supabase" });
+  }
+});
+
+app.get("/ip-local", async (req, res) => {
+  try {
+    const resp = await fetch(
+      `${SUPABASE_URL}/system_settings?select=general&limit=1`,
+      { headers: HEADERS }
+    );
+    const data = await resp.json();
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: "Data tidak ditemukan" });
+    }
+
+    const iplocal = data[0].general?.ipBackendLocal;
+
+    if (!iplocal) {
+      return res.status(404).json({ error: "IP lokal tidak ditemukan" });
+    }
+
+    return res.json({ iplocal });
+  } catch (error) {
+    console.error("Gagal ambil IP lokal:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/card-info", async (req, res) => {
+  const { uid } = req.query;
+
+  if (!uid) {
+    return res.status(400).json({ error: "UID diperlukan" });
+  }
+
+  try {
+    const resp = await fetch(
+      `${SUPABASE_URL}/rfid_cards?uid=eq.${uid}&select=is_admin,balance_points&limit=1`,
+      { headers: HEADERS }
+    );
+
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      return res.status(resp.status).json({ error: data });
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return res.status(404).json({ error: "Kartu tidak ditemukan" });
+    }
+
+    return res.json(data[0]);
+  } catch (err) {
+    console.error("Gagal ambil data kartu:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Start Rental Session
+app.post("/start-session", async (req, res) => {
+  const { console_id, card_uid } = req.body || {};
+  if (!console_id || !card_uid) {
+    return res
+      .status(400)
+      .json({ error: "console_id atau card_uid diperlukan" });
+  }
+
+  try {
+    await fetch(
+      `${SUPABASE_URL}/rental_sessions?console_id=eq.${console_id}&status=eq.active`,
+      {
+        method: "PATCH",
+        headers: HEADERS,
+        body: JSON.stringify({
+          status: "completed",
+          end_time: new Date().toISOString(),
+        }),
+      }
+    ).catch(() => {});
+
+    const select =
+      "id,name,status,rate_profile_id,rate_profiles(hourly_rate),power_tv_command,relay_command_on,relay_command_off";
+    const consoleResp = await fetch(
+      `${SUPABASE_URL}/consoles?id=eq.${console_id}&select=${select}&limit=1`,
+      { headers: HEADERS }
+    );
+    const consoles = await consoleResp.json();
+    if (!consoleResp.ok || !Array.isArray(consoles) || consoles.length === 0) {
+      return res.status(404).json({ error: "Console tidak ditemukan" });
+    }
+    const latestConsole = consoles[0];
+
+    if (latestConsole.status !== "available") {
+      return res.status(409).json({ error: "Console tidak tersedia" });
+    }
+
+    const reserveResp = await fetch(
+      `${SUPABASE_URL}/consoles?id=eq.${console_id}&status=eq.available`,
+      {
+        method: "PATCH",
+        headers: HEADERS,
+        body: JSON.stringify({ status: "rented" }),
+      }
+    );
+    const reservedRows = await reserveResp.json();
+    if (
+      !reserveResp.ok ||
+      !Array.isArray(reservedRows) ||
+      reservedRows.length === 0
+    ) {
+      return res
+        .status(409)
+        .json({ error: "Gagal reserve: console sudah digunakan" });
+    }
+
+    const hourlyRateSnapshot =
+      latestConsole?.rate_profiles?.hourly_rate != null
+        ? Number(latestConsole.rate_profiles.hourly_rate)
+        : 15000;
+    const perMinuteRateSnapshot =
+      Math.ceil(hourlyRateSnapshot / 60 / 100) * 100;
+
+    const startTimeISO = new Date().toISOString();
+    const insertPayload = {
+      customer_id: null,
+      console_id,
+      card_uid,
+      status: "active",
+      payment_status: "pending",
+      total_amount: 0,
+      paid_amount: 0,
+      start_time: startTimeISO,
+      duration_minutes: null,
+      is_voucher_used: true,
+      hourly_rate_snapshot: hourlyRateSnapshot,
+      per_minute_rate_snapshot: perMinuteRateSnapshot,
+    };
+
+    const postResp = await fetch(`${SUPABASE_URL}/rental_sessions`, {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify(insertPayload),
+    });
+    const postResult = await postResp.json();
+    if (!postResp.ok) {
+      await fetch(`${SUPABASE_URL}/consoles?id=eq.${console_id}`, {
+        method: "PATCH",
+        headers: HEADERS,
+        body: JSON.stringify({ status: "available" }),
+      }).catch(() => {});
+      return res.status(postResp.status).json({ error: postResult });
+    }
+
+    return res.json({
+      session: Array.isArray(postResult) ? postResult[0] : postResult,
+      console: reservedRows[0],
+    });
+  } catch (err) {
+    console.error("Error di /start-session:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// End Rental Session
+app.post("/end-session", async (req, res) => {
+  const { session_id, console_id, card_uid } = req.body || {};
+  if (!session_id && !console_id) {
+    return res
+      .status(400)
+      .json({ error: "session_id atau console_id diperlukan" });
+  }
+
+  try {
+    // 1) Ambil sesi aktif (is_voucher_used = true) yang akan diakhiri
+    let session;
+    if (session_id) {
+      const sResp = await fetch(
+        `${SUPABASE_URL}/rental_sessions?id=eq.${session_id}&select=*`,
+        { headers: HEADERS }
+      );
+      const arr = await sResp.json();
+      if (!sResp.ok || !Array.isArray(arr) || arr.length === 0) {
+        return res.status(404).json({ error: "Session tidak ditemukan" });
+      }
+      session = arr[0];
+      if (session.status !== "active" || !session.is_voucher_used) {
+        return res
+          .status(409)
+          .json({ error: "Session bukan aktif atau bukan member card" });
+      }
+    }
+    // else {
+    //   // by console_id (+optional card_uid)
+    //   const filters = [
+    //     `console_id=eq.${encodeURIComponent(console_id)}`,
+    //     "status=eq.active",
+    //     "is_voucher_used=eq.true",
+    //   ];
+    //   if (card_uid) filters.push(`card_uid=eq.${encodeURIComponent(card_uid)}`);
+    //   const sResp = await fetch(
+    //     `${BASE}/rental_sessions?${filters.join("&")}&select=*&limit=1`,
+    //     { headers: HEADERS }
+    //   );
+    //   const arr = await sResp.json();
+    //   if (!sResp.ok || !Array.isArray(arr) || arr.length === 0) {
+    //     return res
+    //       .status(404)
+    //       .json({ error: "Session aktif (member card) tidak ditemukan" });
+    //   }
+    //   session = arr[0];
+    // }
+
+    // 2) Ambil console + rate profile untuk minimum_minutes_member
+    const selectConsole =
+      "id,name,rate_profile_id,rate_profiles(minimum_minutes_member),power_tv_command,relay_command_off";
+    const cResp = await fetch(
+      `${SUPABASE_URL}/consoles?id=eq.${session.console_id}&select=${selectConsole}&limit=1`,
+      { headers: HEADERS }
+    );
+    const consoles = await cResp.json();
+    if (!cResp.ok || !Array.isArray(consoles) || consoles.length === 0) {
+      return res.status(404).json({ error: "Console tidak ditemukan" });
+    }
+    const consoleRow = consoles[0];
+
+    const startTime = session.start_time
+      ? new Date(session.start_time)
+      : new Date();
+    const endTime = new Date();
+    const elapsedMinutes = Math.ceil(
+      (endTime.getTime() - startTime.getTime()) / (1000 * 60)
+    );
+
+    const hourlyRateSnapshot = Number(session.hourly_rate_snapshot ?? 15000);
+    const perMinuteRateSnapshot = Number(
+      session.per_minute_rate_snapshot ?? hourlyRateSnapshot / 60
+    );
+
+    const minimumMinutesMember =
+      consoleRow?.rate_profiles?.minimum_minutes_member != null
+        ? Number(consoleRow.rate_profiles.minimum_minutes_member)
+        : 60;
+
+    let totalPoints = 0;
+    if (minimumMinutesMember === 0) {
+      totalPoints = elapsedMinutes * perMinuteRateSnapshot;
+    } else if (elapsedMinutes <= minimumMinutesMember) {
+      totalPoints = hourlyRateSnapshot;
+    } else {
+      totalPoints =
+        hourlyRateSnapshot +
+        Math.ceil(
+          (elapsedMinutes - minimumMinutesMember) * perMinuteRateSnapshot
+        );
+    }
+
+    const alreadyDeducted = Number(session.total_points_deducted ?? 0);
+    const needToDeduct = Math.max(0, totalPoints - alreadyDeducted);
+
+    // 4) Update rental session => completed
+    const updateSessionResp = await fetch(
+      `${SUPABASE_URL}/rental_sessions?id=eq.${session.id}`,
+      {
+        method: "PATCH",
+        headers: HEADERS,
+        body: JSON.stringify({
+          end_time: endTime.toISOString(),
+          status: "completed",
+          payment_status: "paid",
+          duration_minutes: elapsedMinutes,
+        }),
+      }
+    );
+    const updatedSessionArr = await updateSessionResp.json();
+    if (!updateSessionResp.ok) {
+      return res
+        .status(updateSessionResp.status)
+        .json({ error: updatedSessionArr });
+    }
+    const updatedSession = Array.isArray(updatedSessionArr)
+      ? updatedSessionArr[0]
+      : updatedSessionArr;
+
+    // 5) Set console available (tanpa guard sesuai frontend member-card flow)
+    const updateConsoleResp = await fetch(
+      `${SUPABASE_URL}/consoles?id=eq.${encodeURIComponent(
+        session.console_id
+      )}`,
+      {
+        method: "PATCH",
+        headers: HEADERS,
+        body: JSON.stringify({ status: "available" }),
+      }
+    );
+    const updateConsoleText = await updateConsoleResp.text();
+    if (!updateConsoleResp.ok) {
+      return res
+        .status(updateConsoleResp.status)
+        .json({ error: updateConsoleText, session: updatedSession });
+    }
+
+    // if (consoleRow?.power_tv_command)
+    //   fetch(consoleRow.power_tv_command).catch(() => {});
+    // if (consoleRow?.relay_command_off)
+    //   fetch(consoleRow.relay_command_off).catch(() => {});
+
+    // const cashierPayload = {
+    //   type: "rental",
+    //   amount: 0,
+    //   payment_method: "cash",
+    //   reference_id: `MEMBER_CARD-${Date.now()}`,
+    //   description: "Rental (member card)",
+    //   details: {
+    //     items: [
+    //       {
+    //         name: `Rental ${consoleRow.name || "Console"}`,
+    //         type: "rental",
+    //         quantity: 1,
+    //         total: totalPoints,
+    //         description: `Member Card - ${elapsedMinutes} menit`,
+    //         qty: 1,
+    //         price: totalPoints,
+    //         product_name: `Rental ${consoleRow.name || "Console"}`,
+    //       },
+    //     ],
+    //     breakdown: {
+    //       rental_cost: totalPoints,
+    //       products_total: 0,
+    //     },
+    //     rental: {
+    //       session_id: session.id,
+    //       console: consoleRow.name,
+    //       duration_minutes: elapsedMinutes,
+    //       start_time: session.start_time,
+    //       end_time: endTime.toISOString(),
+    //     },
+    //     member_card: {
+    //       points_used: totalPoints,
+    //       hourly_rate_snapshot: hourlyRateSnapshot,
+    //       per_minute_rate_snapshot: perMinuteRateSnapshot,
+    //     },
+    //     payment: {
+    //       method: "member_card",
+    //       amount: totalPoints,
+    //       change: 0,
+    //     },
+    //     customer_id: null,
+    //     console_id: session.console_id,
+    //     elapsed_minutes: elapsedMinutes,
+    //   },
+    // };
+
+    // console.log(
+    //   "Payload yang dikirim ke cashier_transactions:",
+    //   cashierPayload
+    // );
+
+    // const logResp = await fetch(`${SUPABASE_URL}cashier_transactions`, {
+    //   method: "POST",
+    //   headers: HEADERS,
+    //   body: JSON.stringify(cashierPayload),
+    // });
+    // console.log("Response log cashier_transactions:", logResp);
+    // if (!logResp.ok) {
+    //   console.error("Gagal log cashier transaction:", await logResp.text());
+    // }
+
+    return res.json({
+      session: updatedSession,
+      points: {
+        elapsed_minutes: elapsedMinutes,
+        hourly_rate_snapshot: hourlyRateSnapshot,
+        per_minute_rate_snapshot: perMinuteRateSnapshot,
+        minimum_minutes_member: minimumMinutesMember,
+        total_points: totalPoints,
+        already_deducted: alreadyDeducted,
+        delta_to_deduct: needToDeduct,
+      },
+    });
+  } catch (err) {
+    console.error("Error di /end-session:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.patch("/update-protection/:console_id", async (req, res) => {
+  const { console_id } = req.params;
+  const { auto_shutdown_enabled } = req.body;
+
+  if (auto_shutdown_enabled === undefined) {
+    return res
+      .status(400)
+      .json({ error: "Field auto_shutdown_enabled dibutuhkan" });
+  }
+
+  try {
+    const url = `${SUPABASE_URL}consoles?id=eq.${console_id}`;
+
+    const response = await fetch(url, {
+      method: "PATCH",
+      headers: HEADERS,
+      body: JSON.stringify({ auto_shutdown_enabled }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res
+        .status(500)
+        .json({ error: "Gagal update Supabase", details: data });
+    }
+
+    return res
+      .status(200)
+      .json({ message: "Berhasil update auto_shutdown_enabled", data });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ error: "Server error", details: error.message });
+  }
+});
+
+//Run
 app.listen(port, () => {
   console.log(`TV controller backend running at http://localhost:${port}`);
 });
+// app.listen(port, () => {
+//   console.log(`TV controller backend running at http://0.0.0.0:${port}`);
+// });
 app.listen(port2, () => {
   console.log(`TV controller backend running at http://localhost:${port2}`);
 });
