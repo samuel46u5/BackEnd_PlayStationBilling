@@ -483,7 +483,7 @@ app.get("/tv/:ip/volume/:level", (req, res) => {
       lastAdbConnected.ip !== ip || lastAdbConnected.port !== port;
 
     const doSetVolume = () => {
-      const cmd = `adb -s ${ip}:${port} shell cmd media_session volume --stream 3 --set ${level}`;
+      const cmd = `adb -s ${ip}:${port} shell cmd media_session volume --show --stream 3 --set ${level}`;
       exec(cmd, (err, stdout, stderr) => {
         if (err || (stderr && stderr.includes("Error"))) {
           return res.json({ error: true, message: stderr || err.message });
