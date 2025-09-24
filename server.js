@@ -701,7 +701,7 @@ app.post("/start-session", async (req, res) => {
 
 // End Rental Session
 app.post("/end-session", async (req, res) => {
-  const { session_id, console_id, card_uid } = req.body || {};
+  const { session_id, console_id } = req.body || {};
   if (!session_id && !console_id) {
     return res
       .status(400)
@@ -749,17 +749,17 @@ app.post("/end-session", async (req, res) => {
     // }
 
     // 2) Ambil console + rate profile untuk minimum_minutes_member
-    const selectConsole =
-      "id,name,rate_profile_id,rate_profiles(minimum_minutes_member),power_tv_command,relay_command_off";
-    const cResp = await fetch(
-      `${SUPABASE_URL}/consoles?id=eq.${session.console_id}&select=${selectConsole}&limit=1`,
-      { headers: HEADERS }
-    );
-    const consoles = await cResp.json();
-    if (!cResp.ok || !Array.isArray(consoles) || consoles.length === 0) {
-      return res.status(404).json({ error: "Console tidak ditemukan" });
-    }
-    const consoleRow = consoles[0];
+    // const selectConsole =
+    //   "id,name,rate_profile_id,rate_profiles(minimum_minutes_member),power_tv_command,relay_command_off";
+    // const cResp = await fetch(
+    //   `${SUPABASE_URL}/consoles?id=eq.${session.console_id}&select=${selectConsole}&limit=1`,
+    //   { headers: HEADERS }
+    // );
+    // const consoles = await cResp.json();
+    // if (!cResp.ok || !Array.isArray(consoles) || consoles.length === 0) {
+    //   return res.status(404).json({ error: "Console tidak ditemukan" });
+    // }
+    // const consoleRow = consoles[0];
 
     const startTime = session.start_time
       ? new Date(session.start_time)
@@ -769,31 +769,31 @@ app.post("/end-session", async (req, res) => {
       (endTime.getTime() - startTime.getTime()) / (1000 * 60)
     );
 
-    const hourlyRateSnapshot = Number(session.hourly_rate_snapshot ?? 15000);
-    const perMinuteRateSnapshot = Number(
-      session.per_minute_rate_snapshot ?? hourlyRateSnapshot / 60
-    );
+    // const hourlyRateSnapshot = Number(session.hourly_rate_snapshot ?? 15000);
+    // const perMinuteRateSnapshot = Number(
+    //   session.per_minute_rate_snapshot ?? hourlyRateSnapshot / 60
+    // );
 
-    const minimumMinutesMember =
-      consoleRow?.rate_profiles?.minimum_minutes_member != null
-        ? Number(consoleRow.rate_profiles.minimum_minutes_member)
-        : 60;
+    // const minimumMinutesMember =
+    //   consoleRow?.rate_profiles?.minimum_minutes_member != null
+    //     ? Number(consoleRow.rate_profiles.minimum_minutes_member)
+    //     : 60;
 
-    let totalPoints = 0;
-    if (minimumMinutesMember === 0) {
-      totalPoints = elapsedMinutes * perMinuteRateSnapshot;
-    } else if (elapsedMinutes <= minimumMinutesMember) {
-      totalPoints = hourlyRateSnapshot;
-    } else {
-      totalPoints =
-        hourlyRateSnapshot +
-        Math.ceil(
-          (elapsedMinutes - minimumMinutesMember) * perMinuteRateSnapshot
-        );
-    }
+    // let totalPoints = 0;
+    // if (minimumMinutesMember === 0) {
+    //   totalPoints = elapsedMinutes * perMinuteRateSnapshot;
+    // } else if (elapsedMinutes <= minimumMinutesMember) {
+    //   totalPoints = hourlyRateSnapshot;
+    // } else {
+    //   totalPoints =
+    //     hourlyRateSnapshot +
+    //     Math.ceil(
+    //       (elapsedMinutes - minimumMinutesMember) * perMinuteRateSnapshot
+    //     );
+    // }
 
-    const alreadyDeducted = Number(session.total_points_deducted ?? 0);
-    const needToDeduct = Math.max(0, totalPoints - alreadyDeducted);
+    // const alreadyDeducted = Number(session.total_points_deducted ?? 0);
+    // const needToDeduct = Math.max(0, totalPoints - alreadyDeducted);
 
     // 4) Update rental session => completed
     const updateSessionResp = await fetch(
@@ -907,12 +907,12 @@ app.post("/end-session", async (req, res) => {
       session: updatedSession,
       points: {
         elapsed_minutes: elapsedMinutes,
-        hourly_rate_snapshot: hourlyRateSnapshot,
-        per_minute_rate_snapshot: perMinuteRateSnapshot,
-        minimum_minutes_member: minimumMinutesMember,
-        total_points: totalPoints,
-        already_deducted: alreadyDeducted,
-        delta_to_deduct: needToDeduct,
+        // hourly_rate_snapshot: hourlyRateSnapshot,
+        // per_minute_rate_snapshot: perMinuteRateSnapshot,
+        // minimum_minutes_member: minimumMinutesMember,
+        // total_points: totalPoints,
+        // already_deducted: alreadyDeducted,
+        // delta_to_deduct: needToDeduct,
       },
     });
   } catch (err) {
