@@ -656,8 +656,7 @@ app.post("/start-session", async (req, res) => {
       latestConsole?.rate_profiles?.hourly_rate != null
         ? Number(latestConsole.rate_profiles.hourly_rate)
         : 15000;
-    const perMinuteRateSnapshot =
-      Math.ceil(hourlyRateSnapshot / 60 / 100) * 100;
+    const perMinuteRateSnapshot = Math.ceil(hourlyRateSnapshot / 60);
 
     const startTimeISO = new Date().toISOString();
     const insertPayload = {
