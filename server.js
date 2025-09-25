@@ -921,6 +921,31 @@ app.post("/end-session", async (req, res) => {
   }
 });
 
+app.get("/active-session", async (req, res) => {
+  try {
+    const { console_id } = req.query || {};
+    if (!console_id) {
+      return res.status(400).json({ error: "console_id diperlukan" });
+    }
+
+    const select =
+      "id,status,card_uid,start_time,payment_status,is_voucher_used";
+    const url = `${SUPABASE_URL}/rental_sessions?console_id=eq.${console_id}&status=eq.active&select=${select}&limit=1`;
+
+    const r = await fetch(url, { headers: HEADERS });
+    const arr = await r.json();
+    if (!r.ok) {
+      return res.status(r.status).json({ error: arr });
+    }
+
+    const session = Array.isArray(arr) && arr[0] ? arr[0] : null;
+    return res.json({ active: !!session, session });
+  } catch (e) {
+    console.error("Error /active-session:", e);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.patch("/update-protection/:console_id", async (req, res) => {
   const { console_id } = req.params;
   const { auto_shutdown_enabled } = req.body;
