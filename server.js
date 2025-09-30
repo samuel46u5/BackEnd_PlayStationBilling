@@ -574,7 +574,7 @@ app.get("/card-info", async (req, res) => {
 
   try {
     const resp = await fetch(
-      `${SUPABASE_URL}/rfid_cards?uid=eq.${uid}&select=is_admin,balance_points&limit=1`,
+      `${SUPABASE_URL}/rfid_cards?uid=eq.${uid}&select=status,is_admin,balance_points&limit=1`,
       { headers: HEADERS }
     );
 
