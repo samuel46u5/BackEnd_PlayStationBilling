@@ -668,6 +668,7 @@ app.post("/start-session", async (req, res) => {
       total_amount: 0,
       paid_amount: 0,
       start_time: startTimeISO,
+      is_mode_esp32: true,
       duration_minutes: null,
       is_voucher_used: true,
       hourly_rate_snapshot: hourlyRateSnapshot,
