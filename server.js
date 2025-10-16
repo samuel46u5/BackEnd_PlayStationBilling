@@ -752,15 +752,18 @@ app.post("/end-session", async (req, res) => {
     // 2) Ambil console + rate profile untuk minimum_minutes_member
     // const selectConsole =
     //   "id,name,rate_profile_id,rate_profiles(minimum_minutes_member),power_tv_command,relay_command_off";
-    // const cResp = await fetch(
-    //   `${SUPABASE_URL}/consoles?id=eq.${session.console_id}&select=${selectConsole}&limit=1`,
-    //   { headers: HEADERS }
-    // );
-    // const consoles = await cResp.json();
-    // if (!cResp.ok || !Array.isArray(consoles) || consoles.length === 0) {
-    //   return res.status(404).json({ error: "Console tidak ditemukan" });
-    // }
-    // const consoleRow = consoles[0];
+    const selectConsole =
+      "id,name,rate_profiles(capital,minimum_minutes_member)";
+    const cResp = await fetch(
+      `${SUPABASE_URL}/consoles?id=eq.${session.console_id}&select=${selectConsole}&limit=1`,
+      { headers: HEADERS }
+    );
+    const consoles = await cResp.json();
+    if (!cResp.ok || !Array.isArray(consoles) || consoles.length === 0) {
+      return res.status(404).json({ error: "Console tidak ditemukan" });
+    }
+    const consoleRow = consoles[0];
+    const capital = consoleRow?.rate_profiles?.capital ?? 0;
 
     const startTime = session.start_time
       ? new Date(session.start_time)
@@ -770,28 +773,28 @@ app.post("/end-session", async (req, res) => {
       (endTime.getTime() - startTime.getTime()) / (1000 * 60)
     );
 
-    // const hourlyRateSnapshot = Number(session.hourly_rate_snapshot ?? 15000);
-    // const perMinuteRateSnapshot = Number(
-    //   session.per_minute_rate_snapshot ?? hourlyRateSnapshot / 60
-    // );
+    const hourlyRateSnapshot = Number(session.hourly_rate_snapshot ?? 15000);
+    const perMinuteRateSnapshot = Number(
+      session.per_minute_rate_snapshot ?? hourlyRateSnapshot / 60
+    );
 
-    // const minimumMinutesMember =
-    //   consoleRow?.rate_profiles?.minimum_minutes_member != null
-    //     ? Number(consoleRow.rate_profiles.minimum_minutes_member)
-    //     : 60;
+    const minimumMinutesMember =
+      consoleRow?.rate_profiles?.minimum_minutes_member != null
+        ? Number(consoleRow.rate_profiles.minimum_minutes_member)
+        : 60;
 
-    // let totalPoints = 0;
-    // if (minimumMinutesMember === 0) {
-    //   totalPoints = elapsedMinutes * perMinuteRateSnapshot;
-    // } else if (elapsedMinutes <= minimumMinutesMember) {
-    //   totalPoints = hourlyRateSnapshot;
-    // } else {
-    //   totalPoints =
-    //     hourlyRateSnapshot +
-    //     Math.ceil(
-    //       (elapsedMinutes - minimumMinutesMember) * perMinuteRateSnapshot
-    //     );
-    // }
+    let totalPoints = 0;
+    if (minimumMinutesMember === 0) {
+      totalPoints = elapsedMinutes * perMinuteRateSnapshot;
+    } else if (elapsedMinutes <= minimumMinutesMember) {
+      totalPoints = hourlyRateSnapshot;
+    } else {
+      totalPoints =
+        hourlyRateSnapshot +
+        Math.ceil(
+          (elapsedMinutes - minimumMinutesMember) * perMinuteRateSnapshot
+        );
+    }
 
     // const alreadyDeducted = Number(session.total_points_deducted ?? 0);
     // const needToDeduct = Math.max(0, totalPoints - alreadyDeducted);
@@ -903,6 +906,87 @@ app.post("/end-session", async (req, res) => {
     // if (!logResp.ok) {
     //   console.error("Gagal log cashier transaction:", await logResp.text());
     // }
+
+    const cardResp = await fetch(
+      `${SUPABASE_URL}/rfid_cards?uid=eq.${session.card_uid}`,
+      {
+        method: "GET",
+        headers: {
+          ...HEADERS,
+        },
+      }
+    );
+
+    const cardData = await cardResp.json();
+    const avgNilaiPoint = cardData?.[0]?.avg_nilai_point || 0;
+
+    const durationHours = elapsedMinutes / 60;
+    const capitalCost = capital * durationHours;
+    const profit = avgNilaiPoint * totalPoints - capitalCost;
+
+    const cashierPayload = {
+      type: "rental",
+      amount: 0,
+      payment_method: "cash",
+      reference_id: `MEMBER_CARD-${Date.now()}`,
+      description: "Rental (member card)",
+      details: {
+        items: [
+          {
+            name: `Rental ${consoleRow.name || "Console"}`,
+            type: "rental",
+            quantity: 1,
+            total: totalPoints,
+            description: `Member Card - ${elapsedMinutes} menit`,
+            qty: 1,
+            price: totalPoints,
+            profit: profit,
+            capital: capitalCost,
+            product_name: `Rental ${consoleRow.name || "Console"}`,
+          },
+        ],
+        breakdown: {
+          rental_cost: totalPoints,
+          products_total: 0,
+        },
+        customer: {
+          name: undefined,
+          id: null,
+        },
+        rental: {
+          session_id: session.id,
+          console: consoleRow.name,
+          duration_minutes: elapsedMinutes,
+          start_time: session.start_time,
+          end_time: endTime.toISOString(),
+        },
+        member_card: {
+          points_used: totalPoints,
+          hourly_rate_snapshot: hourlyRateSnapshot,
+          per_minute_rate_snapshot: perMinuteRateSnapshot,
+          avg_nilai_point: avgNilaiPoint,
+          capital: capital,
+        },
+        payment: {
+          method: "member_card",
+          amount: totalPoints,
+          change: 0,
+        },
+        customer_id: null,
+        console_id: session.console_id,
+        elapsed_minutes: elapsedMinutes,
+      },
+    };
+
+    const logResp = await fetch(`${SUPABASE_URL}/cashier_transactions`, {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify(cashierPayload),
+    });
+
+    if (!logResp.ok) {
+      console.error("Gagal log cashier transaction:", await logResp.text());
+    }
 
     return res.json({
       session: updatedSession,
