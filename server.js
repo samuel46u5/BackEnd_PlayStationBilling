@@ -841,10 +841,10 @@ app.post("/end-session", async (req, res) => {
         .json({ error: updateConsoleText, session: updatedSession });
     }
 
-    // if (consoleRow?.power_tv_command)
-    //   fetch(consoleRow.power_tv_command).catch(() => {});
-    // if (consoleRow?.relay_command_off)
-    //   fetch(consoleRow.relay_command_off).catch(() => {});
+    if (consoleRow?.power_tv_command)
+      fetch(consoleRow.power_tv_command).catch(() => {});
+    if (consoleRow?.relay_command_off)
+      fetch(consoleRow.relay_command_off).catch(() => {});
 
     // const cashierPayload = {
     //   type: "rental",
