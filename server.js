@@ -919,10 +919,31 @@ app.post("/end-session", async (req, res) => {
 
     const cardData = await cardResp.json();
     const avgNilaiPoint = cardData?.[0]?.avg_nilai_point || 0;
+    const currentBalance = cardData?.[0]?.balance_points;
 
     const durationHours = elapsedMinutes / 60;
     const capitalCost = capital * durationHours;
     const profit = avgNilaiPoint * totalPoints - capitalCost;
+
+    if (currentBalance <= 0) {
+      const resetResp = await fetch(
+        `${SUPABASE_URL}/rfid_cards?uid=eq.${session.card_uid}`,
+        {
+          method: "PATCH",
+          headers: HEADERS,
+          body: JSON.stringify({
+            avg_nilai_point: 0,
+            total_poin_ever: 0,
+            total_uang_ever: 0,
+          }),
+        }
+      );
+      if (!resetResp.ok) {
+        console.error("Gagal reset kartu:", await resetResp.text());
+      } else {
+        console.log(`Kartu ${session.card_uid} direset karena balance habis`);
+      }
+    }
 
     const cashierPayload = {
       type: "rental",
