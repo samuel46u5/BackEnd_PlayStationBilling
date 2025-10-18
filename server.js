@@ -750,10 +750,10 @@ app.post("/end-session", async (req, res) => {
     // }
 
     // 2) Ambil console + rate profile untuk minimum_minutes_member
-    // const selectConsole =
-    //   "id,name,rate_profile_id,rate_profiles(minimum_minutes_member),power_tv_command,relay_command_off";
     const selectConsole =
-      "id,name,rate_profiles(capital,minimum_minutes_member)";
+      "id,name,rate_profile_id,rate_profiles(capital,minimum_minutes_member),power_tv_command,relay_command_off";
+    // const selectConsole =
+    //   "id,name,rate_profiles(capital,minimum_minutes_member)";
     const cResp = await fetch(
       `${SUPABASE_URL}/consoles?id=eq.${session.console_id}&select=${selectConsole}&limit=1`,
       { headers: HEADERS }
